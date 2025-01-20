@@ -1,18 +1,12 @@
-FROM node:20 as builder
+FROM python:3.11
 
 WORKDIR /app
-COPY package*.json ./
-RUN npm install
 
-COPY src ./src
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-FROM node:20
+COPY ./src ./src
 
-WORKDIR /app
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/src ./src
-COPY package*.json ./
-
-USER node
 EXPOSE 8080
-CMD ["npm", "start"]
+
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]

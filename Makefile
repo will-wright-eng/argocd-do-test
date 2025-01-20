@@ -56,6 +56,12 @@ api-run: ## [docker] run local docker image
 		-p $(API_PORT):8080 \
 		$(LOCAL_IMAGE_NAME)
 
+apirun: ## [docker] run local docker image
+	docker run --rm \
+		--name demo-api \
+		-p $(API_PORT):8080 \
+		$(LOCAL_IMAGE_NAME)
+
 api-test: api-build api-run ## [docker] test local docker image
 	@echo "API is running on http://localhost:$(API_PORT)"
 	@echo "Test with: curl http://localhost:$(API_PORT)/health"
@@ -100,6 +106,9 @@ argo-pf: ## [k8s] access ArgoCD UI at http://localhost:8080
 argo-apply: ## [k8s] apply ArgoCD configuration
 	kubectl apply -f argocd/projects/demo-project.yaml
 	kubectl apply -f argocd/applications/api-app.yaml
+
+delete-pods: ## [k8s] delete all pods
+	kubectl delete pods --all -n demo
 
 #* Other
 registry-login: ## [do registry] login to DO container registry
