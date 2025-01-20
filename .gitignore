@@ -49,3 +49,10 @@ override.tf.json
 kubeconfig
 *.kubeconfig
 .kubectl/
+
+# Docker
+.docker/
+Dockerfile.local
+docker-compose.override.yml
+*.env.docker
+.dockerignore

@@ -3,7 +3,7 @@
 set -e
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-SCRIPT_DIR="$REPO_ROOT/devops/k8s/argocd/scripts"
+SCRIPT_DIR="$REPO_ROOT/scripts"
 source "${SCRIPT_DIR}/common.sh"
 
 check_do_token

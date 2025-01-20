@@ -5,7 +5,8 @@ resources:
   - namespace.yaml
 patchesStrategicMerge:
   - patches/api-deployment.yaml
+
 images:
   - name: api
-    newName: your-registry/api
-    newTag: dev
+    newName: registry.digitalocean.com/demo-argocd-registry/demo-api
+    newTag: latest
