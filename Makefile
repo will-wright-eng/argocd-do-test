@@ -47,33 +47,13 @@ docker-push: registry-login docker-build ## [docker] push docker image
 	docker push $(FULL_IMAGE_NAME)
 
 # Local API testing commands
-api-build: ## [docker] build local docker image
-	docker build -t $(LOCAL_IMAGE_NAME) api/
+local: ## [docker] test api locally
+	docker compose -f docker-compose.yml up --build --remove-orphans
 
-api-run: ## [docker] run local docker image
-	docker run --rm -d \
-		--name demo-api \
-		-p $(API_PORT):8080 \
-		$(LOCAL_IMAGE_NAME)
+kill: ## [docker] kill local docker image
+	docker compose -f docker-compose.yml down
 
-apirun: ## [docker] run local docker image
-	docker run --rm \
-		--name demo-api \
-		-p $(API_PORT):8080 \
-		$(LOCAL_IMAGE_NAME)
-
-api-test: api-build api-run ## [docker] test local docker image
-	@echo "API is running on http://localhost:$(API_PORT)"
-	@echo "Test with: curl http://localhost:$(API_PORT)/health"
-	@echo "Stop with: make api-stop"
-
-api-stop: ## [docker] stop local docker image
-	docker stop demo-api || true
-
-api-logs: ## [docker] show local docker image logs
-	docker logs -f demo-api
-
-api-health:
+health:
 	curl -s http://localhost:$(API_PORT)/health | jq || echo "Failed to connect to API"
 
 #* Kubernetes commands
