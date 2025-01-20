@@ -23,3 +23,29 @@ go.work.sum
 
 # env file
 .env
+
+# Terraform files
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraformrc
+terraform.rc
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.lock.hcl
+
+# Argo CD
+.argocd/
+*.argocd.yaml
+.argo-cache/
+
+# Kubectl
+.kube/
+kubeconfig
+*.kubeconfig
+.kubectl/
