@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# shellcheck disable=SC2034
 TERRAFORM="tofu"
 
 check_do_token() {

@@ -1,0 +1,84 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+default_language_version:
+  python: python3.12
+
+default_stages: [pre-commit, pre-push]
+
+repos:
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.96.3
+    hooks:
+      - id: terraform_fmt
+        args:
+          - --args=-recursive
+          - --args=-diff
+          - --args=-write=true
+      - id: terraform_validate
+        args:
+          - --args=-json
+          - --args=-no-color
+      - id: terraform_tflint
+        args:
+          - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
+        entry: /usr/bin/env bash -c 'tflint --config=.tflint.hcl || true'
+      - id: terraform_checkov
+        args:
+          - --args=--quiet
+          - --args=--skip-check CKV_GCP_* # Optional: Skip specific checks
+          - --args=--framework terraform
+        entry: /usr/bin/env bash -c 'checkov --quiet --skip-check CKV_GCP_* --framework terraform . || true'
+      - id: terrascan
+        args:
+          - --args=--verbose
+          - --args=--non-recursive
+        entry: /usr/bin/env bash -c 'terrascan scan --verbose --non-recursive || true'
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: detect-private-key
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.43.0
+    hooks:
+    - id: markdownlint
+      args:
+      - --fix
+      verbose: true
+      entry: bash -c 'markdownlint "$@" || true' --
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.3.0
+    hooks:
+    - id: codespell
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        args: [
+          '--severity=warning',  # Minimum severity of issues to display
+          '--shell=bash',       # Specify shell dialect
+          '--color=always'      # Colored output
+        ]
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+    - id: isort
+      args: ["--settings-file", ".isort.cfg", "--filter-files"]
+      name: isort (python)
+    - id: isort
+      name: isort (cython)
+      types: [cython]
+    - id: isort
+      name: isort (pyi)
+      types: [pyi]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.3.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
