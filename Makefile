@@ -102,8 +102,11 @@ argo-apply: ## [k8s] apply ArgoCD configuration
 	kubectl apply -f argocd/applications/api-app.yaml
 
 #* Other
-registry-login: ## [docker] login to DO container registry
+registry-login: ## [do registry] login to DO container registry
 	@bash scripts/registry-login.sh
+
+registry-auth: ## [do registry] configure registry authentication
+	@bash scripts/registry-auth.sh
 
 cleanup: ## [k8s] remove generated files and terraform artifacts
 	@echo "${GREEN}Cleaning up generated files...${NC}"
