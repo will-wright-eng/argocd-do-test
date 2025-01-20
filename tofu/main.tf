@@ -19,3 +19,9 @@ resource "digitalocean_project" "project" {
   environment = "Development"
   resources   = [digitalocean_kubernetes_cluster.cluster.urn]
 }
+
+resource "digitalocean_container_registry" "registry" {
+  name                   = "${var.cluster_name}-registry"
+  subscription_tier_slug = "basic"
+  region                 = "nyc3"
+}

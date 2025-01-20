@@ -11,3 +11,13 @@ output "cluster_id" {
   description = "ID of the cluster"
   value       = digitalocean_kubernetes_cluster.cluster.id
 }
+
+output "registry_server" {
+  description = "Container registry server URL"
+  value       = digitalocean_container_registry.registry.server_url
+}
+
+output "registry_name" {
+  description = "Container registry name"
+  value       = digitalocean_container_registry.registry.name
+}
