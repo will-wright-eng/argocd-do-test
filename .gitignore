@@ -28,7 +28,6 @@ go.work.sum
 .terraform/
 *.tfstate
 *.tfstate.*
-*.tfvars
 .terraformrc
 terraform.rc
 crash.log
