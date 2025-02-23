@@ -1,20 +1,23 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: demo-api
+  name: apps
   namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
-  project: demo
+  project: demo-project
   source:
-    repoURL: https://github.com/will-wright-eng/argocd-do-test
+    repoURL: https://github.com/will-wright-eng/argocd-do-test.git
     targetRevision: HEAD
-    path: k8s/overlays/dev
+    path: argocd/apps
   destination:
     server: https://kubernetes.default.svc
-    namespace: demo
+    namespace: argocd
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
     - CreateNamespace=true
+---

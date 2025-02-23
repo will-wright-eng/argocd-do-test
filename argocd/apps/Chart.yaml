@@ -1,0 +1,6 @@
+apiVersion: v2
+name: apps
+description: Application definitions for ArgoCD
+version: 0.1.0
+type: application
+---
