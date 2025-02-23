@@ -209,3 +209,7 @@ make delete-pods     # Delete all pods in the demo namespace
    - Check DO_TOKEN environment variable
    - Verify cluster status in DigitalOcean console
    - Run `make cluster-info` for detailed status
+
+## References
+
+- [digitalocean_kubernetes_cluster | Resources | digitalocean/digitalocean | Terraform | Terraform Registry](https://registry.terraform.io/providers/digitalocean/digitalocean/latest/docs/resources/kubernetes_cluster)

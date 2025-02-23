@@ -79,8 +79,8 @@ argo-install: ## [k8s] install ArgoCD in the cluster
 argo-pass: ## [k8s] get ArgoCD admin password
 	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
 
-argo-pf: ## [k8s] access ArgoCD UI at http://localhost:8080
-	@echo "Access ArgoCD UI at http://localhost:8080"
+argo-pf: argo-pass ## [k8s] access ArgoCD UI at http://localhost:8080
+	@echo "Access ArgoCD UI at http://localhost:8080 (username admin)"
 	kubectl port-forward svc/argocd-server -n argocd 8080:443
 
 argo-apply: ## [k8s] apply ArgoCD configuration
@@ -91,6 +91,9 @@ delete-pods: ## [k8s] delete all pods
 	kubectl delete pods --all -n demo
 
 #* Other
+open: ## [other] open DO cluster in browser
+	open https://cloud.digitalocean.com/kubernetes/clusters
+
 registry-login: ## [do registry] login to DO container registry
 	@bash scripts/registry-login.sh
 

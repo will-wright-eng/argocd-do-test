@@ -1,4 +1,4 @@
-FROM python:3.11
+FROM python:3.12
 
 WORKDIR /code
 
@@ -10,4 +10,5 @@ COPY ./app /code/app
 
 EXPOSE 8080
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
+# CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
