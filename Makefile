@@ -175,7 +175,7 @@ argocd-setup: ## [phase 3] Install and configure ArgoCD
 	make argo-install
 	@echo "ArgoCD admin credentials:"
 	make argo-pass
-	make argo-apply
+	make argo-login
 
 #* Phase 4: Application Deployment
 app-deploy: ## [phase 4] Deploy application via ArgoCD
@@ -208,3 +208,8 @@ full-setup: ## [complete] Complete setup from scratch
 	@echo "ArgoCD UI: make argopf (http://localhost:8080)"
 	@echo "Grafana: make grafana-ui (http://localhost:3000)"
 	@echo "Prometheus: make prometheus-ui (http://localhost:9090)"
+
+argo-login: argo-pass ## [argocd] configure ArgoCD CLI with current k8s context
+	@echo "Configuring ArgoCD CLI..."
+	@ARGO_PASSWORD=$$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d) && \
+	argocd login localhost:8080 --username admin --password $$ARGO_PASSWORD --insecure
