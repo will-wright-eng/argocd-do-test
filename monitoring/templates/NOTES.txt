@@ -1,0 +1,10 @@
+Thank you for installing {{ .Chart.Name }}.
+Your release is named {{ .Release.Name }}.
+To get the Grafana admin password run:
+    kubectl get secret --namespace {{ .Release.Namespace }} grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+To access Grafana UI:
+    kubectl port-forward svc/grafana -n {{ .Release.Namespace }} 3000:80
+Then visit http://localhost:3000
+To access Prometheus UI:
+    kubectl port-forward svc/prometheus-server -n {{ .Release.Namespace }} 9090:80
+Then visit http://localhost:9090

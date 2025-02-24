@@ -1,4 +1,5 @@
 # Variables
+ENVIRONMENT ?= dev
 ENV ?= dev
 DOCKER_TAG ?= latest
 REPO_ROOT := $(shell git rev-parse --show-toplevel)
@@ -28,13 +29,13 @@ help: ## list make commands
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # Infrastructure commands
-init: ## [tofu] initialize terraform
+tofu-init: ## [tofu] initialize terraform
 	@bash scripts/init.sh
 
-apply: ## [tofu] apply terraform
+tofu-apply: ## [tofu] apply terraform
 	@bash scripts/apply.sh
 
-destroy: ## [tofu] destroy terraform
+tofu-destroy: ## [tofu] destroy terraform
 	@bash scripts/destroy.sh
 
 #* Docker commands
@@ -68,7 +69,11 @@ cluster-info: ## [k8s] get cluster info
 	@echo "\nSystem Pods:"
 	@kubectl get pods -n kube-system
 
-argo-install: ## [k8s] install ArgoCD in the cluster
+deletepods: ## [k8s] delete all pods
+	kubectl delete pods --all -n demo
+
+#* ArgoCD management
+argo-install: ## [argocd] install ArgoCD in the cluster
 	kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 	kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 	@echo "Waiting for ArgoCD pods to be ready..."
@@ -76,35 +81,135 @@ argo-install: ## [k8s] install ArgoCD in the cluster
 	@echo "\nArgoCD admin password:"
 	kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
 
-argo-pass: ## [k8s] get ArgoCD admin password
+argo-pass: ## [argocd] get ArgoCD admin password
 	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
 
-argo-pf: argo-pass ## [k8s] access ArgoCD UI at http://localhost:8080
+argo-pf: argo-pass ## [argocd] access ArgoCD UI at http://localhost:8080
 	@echo "Access ArgoCD UI at http://localhost:8080 (username admin)"
 	kubectl port-forward svc/argocd-server -n argocd 8080:443
 
-argo-apply: ## [k8s] apply ArgoCD configuration
-	kubectl apply -f argocd/projects/demo-project.yaml
-	kubectl apply -f argocd/applications/api-app.yaml
+argo-init: ## [argocd] initialize ArgoCD applications
+	@echo "Initializing ArgoCD applications..."
+	kubectl apply -f argocd/applications/apps.yaml
 
-delete-pods: ## [k8s] delete all pods
-	kubectl delete pods --all -n demo
+argo-sync: ## [argocd] sync ArgoCD applications
+	@echo "Syncing ArgoCD applications..."
+	argocd app sync apps
+	argocd app sync monitoring
+	argocd app sync api
+
+argo-status: ## [argocd] get ArgoCD applications status
+	@echo "ArgoCD Applications Status:"
+	kubectl get applications -n argocd
+	@echo "\nPods Status:"
+	kubectl get pods -n argocd
+
+monitoring-init: ## [argocd] initialize monitoring stack
+	@echo "Initializing monitoring stack..."
+	cd monitoring && helm dependency update
+	cd monitoring && helm dependency build
+
+monitoring-status: ## [argocd] get monitoring stack status
+	@echo "Monitoring Stack Status:"
+	kubectl get pods -n monitoring
+	@echo "\nServices:"
+	kubectl get svc -n monitoring
+
+monitoring-password: ## [argocd] get monitoring stack admin password
+	@echo "Grafana admin password:"
+	kubectl get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+
+grafana-ui: ## [argocd] port forward Grafana UI to http://localhost:3000
+	@echo "Port forwarding Grafana UI to http://localhost:3000"
+	kubectl port-forward svc/grafana -n monitoring 3000:80
+
+prometheus-ui: ## [argocd] port forward Prometheus UI to http://localhost:9090
+	@echo "Port forwarding Prometheus UI to http://localhost:9090"
+	kubectl port-forward svc/prometheus-server -n monitoring 9090:80
+
+argo-clean: ## [argocd] remove ArgoCD applications and monitoring stack
+	@echo "Cleaning up..."
+	kubectl delete -f argocd/applications/apps.yaml || true
+	kubectl delete namespace monitoring || true
 
 #* Other
-open: ## [other] open DO cluster in browser
+open: ## [do] open DO cluster in browser
 	open https://cloud.digitalocean.com/kubernetes/clusters
 
-registry-login: ## [do registry] login to DO container registry
+registry-login: ## [do] login to DO container registry
 	@bash scripts/registry-login.sh
 
-registry-auth: ## [do registry] configure registry authentication
+registry-auth: ## [do] configure registry authentication
 	@bash scripts/registry-auth.sh
 
-cleanup: ## [k8s] remove generated files and terraform artifacts
+cleanup: ## remove generated files and terraform artifacts
 	@echo "${GREEN}Cleaning up generated files...${NC}"
 	rm -f tofu/tfplan
 	rm -rf tofu/.terraform
-	rm -f tofu/terraform.tfstate
-	rm -f tofu/terraform.tfstate.backup
 	rm -f tofu/.terraform.lock.hcl
+	@echo "${GREEN}Cleaning up Python artifacts...${NC}"
+	find . -type f -name "*.pyc" -delete
+	find . -type d -name "__pycache__" -exec rm -rf {} +
+	find . -type d -name "*.egg-info" -exec rm -rf {} +
+	find . -type d -name ".pytest_cache" -exec rm -rf {} +
 	@echo "${GREEN}Cleanup complete${NC}"
+
+#* Phase 1: Infrastructure Setup
+infra-init: ## [phase 1] Initialize infrastructure
+	@echo "${GREEN}Initializing infrastructure...${NC}"
+	make tofu-init
+	make tofu-apply
+	make verify
+	make registry-auth
+
+#* Phase 2: Container Registry and Image
+registry-setup: ## [phase 2] Setup registry and build/push image
+	@echo "${GREEN}Setting up container registry and building image...${NC}"
+	make registry-login
+	make docker-build
+	make docker-push
+
+#* Phase 3: ArgoCD Installation
+argocd-setup: ## [phase 3] Install and configure ArgoCD
+	@echo "${GREEN}Setting up ArgoCD...${NC}"
+	make argo-install
+	@echo "ArgoCD admin credentials:"
+	make argo-pass
+	make argo-login
+
+#* Phase 4: Application Deployment
+app-deploy: ## [phase 4] Deploy application via ArgoCD
+	@echo "${GREEN}Deploying application...${NC}"
+	make argo-init
+	make argo-sync
+	@echo "Waiting for applications to sync..."
+	sleep 30
+	make argo-status
+
+#* Phase 5: Monitoring Setup
+monitoring-setup: ## [phase 5] Setup monitoring stack
+	@echo "${GREEN}Setting up monitoring stack...${NC}"
+	make monitoring-init
+	@echo "Waiting for monitoring stack to be ready..."
+	sleep 30
+	make monitoring-status
+	@echo "Grafana admin credentials:"
+	make monitoring-password
+
+#* Complete Setup
+full-setup: ## [complete] Complete setup from scratch
+	@echo "${GREEN}Starting complete setup...${NC}"
+	make infra-init
+	make registry-setup
+	make argocd-setup
+	make app-deploy
+	make monitoring-setup
+	@echo "${GREEN}Setup complete! Access points:${NC}"
+	@echo "ArgoCD UI: make argopf (http://localhost:8080)"
+	@echo "Grafana: make grafana-ui (http://localhost:3000)"
+	@echo "Prometheus: make prometheus-ui (http://localhost:9090)"
+
+argo-login: argo-pass ## [argocd] configure ArgoCD CLI with current k8s context
+	@echo "Configuring ArgoCD CLI..."
+	@ARGO_PASSWORD=$$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d) && \
+	argocd login localhost:8080 --username admin --password $$ARGO_PASSWORD --insecure

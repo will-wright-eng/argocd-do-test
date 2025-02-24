@@ -88,8 +88,3 @@ env.bak/
 venv.bak/
 .python-version
 .ruff_cache/
-
-# Helm
-**/charts/*.tgz
-.helm/
-Chart.lock

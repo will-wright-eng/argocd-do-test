@@ -39,16 +39,33 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     # Export kubeconfig if apply was successful
     if [ $? -eq 0 ]; then
         echo "Exporting kubeconfig..."
-        mkdir -p ~/.kube
-        $TERRAFORM output -raw kubeconfig > ~/.kube/config-do-demo
-        echo "Kubeconfig exported to ~/.kube/config-do-demo"
 
-        # Create symbolic link to make it the active config
-        read -p "Make this your active kubeconfig? (y/n) " -n 1 -r
+        # Get cluster name and region from terraform output
+        CLUSTER_NAME=$($TERRAFORM output -raw cluster_name)
+        REGION=$($TERRAFORM output -raw region)
+        CONTEXT_NAME="do_${REGION}_${CLUSTER_NAME}"
+
+        # Export to a temporary file
+        mkdir -p ~/.kube
+        $TERRAFORM output -raw kubeconfig > ~/.kube/config-temp
+
+        # Rename the context to our standardized name
+        kubectl --kubeconfig ~/.kube/config-temp config rename-context "do-k8s" "${CONTEXT_NAME}"
+
+        # Merge the new kubeconfig with existing config
+        read -p "Add/Update this cluster in your kubeconfig? (y/n) " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
-            ln -sf ~/.kube/config-do-demo ~/.kube/config
-            echo "Kubeconfig symlinked to ~/.kube/config"
+            if [ -f ~/.kube/config ]; then
+                KUBECONFIG=~/.kube/config:~/.kube/config-temp kubectl config view --flatten > ~/.kube/config.tmp
+                mv ~/.kube/config.tmp ~/.kube/config
+            else
+                mv ~/.kube/config-temp ~/.kube/config
+            fi
+            rm -f ~/.kube/config-temp
+            echo "Kubeconfig merged successfully"
+            echo "Cluster context name: ${CONTEXT_NAME}"
+            echo "You can switch to this cluster using: kubectx ${CONTEXT_NAME}"
         fi
     fi
 else

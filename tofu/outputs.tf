@@ -21,3 +21,11 @@ output "registry_name" {
   description = "Container registry name"
   value       = digitalocean_container_registry.registry.name
 }
+
+output "cluster_name" {
+  value = digitalocean_kubernetes_cluster.cluster.name
+}
+
+output "region" {
+  value = digitalocean_kubernetes_cluster.cluster.region
+}
