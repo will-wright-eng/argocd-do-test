@@ -18,6 +18,11 @@ fi
 # Navigate to tofu directory
 cd $TERRAFORM
 
+# Get cluster name and region from terraform output (before destroy)
+CLUSTER_NAME=$($TERRAFORM output -raw cluster_name)
+REGION=$($TERRAFORM output -raw region)
+CONTEXT_NAME="do_${REGION}_${CLUSTER_NAME}"
+
 # Run tofu destroy with plan
 echo "Planning destruction of infrastructure..."
 $TERRAFORM plan -destroy -out=tfplan
@@ -34,16 +39,15 @@ if [[ $REPLY =~ ^yes$ ]]; then
 
     # Clean up kubeconfig if destroy was successful
     if [ $? -eq 0 ]; then
-        if [ -f ~/.kube/config-do-demo ]; then
+        if kubectl config get-contexts "${CONTEXT_NAME}" &>/dev/null; then
             echo "Cleaning up kubeconfig..."
-            rm ~/.kube/config-do-demo
-            echo "Removed ~/.kube/config-do-demo"
 
-            # Check if the active config is our symlink
-            if [ -L ~/.kube/config ] && [ "$(readlink ~/.kube/config)" = "$HOME/.kube/config-do-demo" ]; then
-                rm ~/.kube/config
-                echo "Removed symlink from ~/.kube/config"
-            fi
+            # Remove the context and cluster from the config
+            kubectl config delete-context "${CONTEXT_NAME}"
+            kubectl config delete-cluster "${CONTEXT_NAME}"
+            kubectl config unset "users.${CONTEXT_NAME}"
+
+            echo "Removed cluster context '${CONTEXT_NAME}' from kubeconfig"
         fi
     fi
 else

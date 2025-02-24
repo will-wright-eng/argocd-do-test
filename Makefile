@@ -1,4 +1,5 @@
 # Variables
+ENVIRONMENT ?= dev
 ENV ?= dev
 DOCKER_TAG ?= latest
 REPO_ROOT := $(shell git rev-parse --show-toplevel)
@@ -28,13 +29,13 @@ help: ## list make commands
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # Infrastructure commands
-init: ## [tofu] initialize terraform
+tofu-init: ## [tofu] initialize terraform
 	@bash scripts/init.sh
 
-apply: ## [tofu] apply terraform
+tofu-apply: ## [tofu] apply terraform
 	@bash scripts/apply.sh
 
-destroy: ## [tofu] destroy terraform
+tofu-destroy: ## [tofu] destroy terraform
 	@bash scripts/destroy.sh
 
 #* Docker commands
@@ -68,7 +69,11 @@ cluster-info: ## [k8s] get cluster info
 	@echo "\nSystem Pods:"
 	@kubectl get pods -n kube-system
 
-argoinstall: ## [k8s] install ArgoCD in the cluster
+deletepods: ## [k8s] delete all pods
+	kubectl delete pods --all -n demo
+
+#* ArgoCD management
+argo-install: ## [argocd] install ArgoCD in the cluster
 	kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 	kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 	@echo "Waiting for ArgoCD pods to be ready..."
@@ -76,44 +81,12 @@ argoinstall: ## [k8s] install ArgoCD in the cluster
 	@echo "\nArgoCD admin password:"
 	kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
 
-argopass: ## [k8s] get ArgoCD admin password
+argo-pass: ## [argocd] get ArgoCD admin password
 	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
 
-argopf: argopass ## [k8s] access ArgoCD UI at http://localhost:8080
+argo-pf: argo-pass ## [argocd] access ArgoCD UI at http://localhost:8080
 	@echo "Access ArgoCD UI at http://localhost:8080 (username admin)"
 	kubectl port-forward svc/argocd-server -n argocd 8080:443
-
-argoapply: ## [k8s] apply ArgoCD configuration
-	kubectl apply -f argocd/projects/demo-project.yaml
-	kubectl apply -f argocd/applications/api-app.yaml
-
-deletepods: ## [k8s] delete all pods
-	kubectl delete pods --all -n demo
-
-#* Other
-open: ## [other] open DO cluster in browser
-	open https://cloud.digitalocean.com/kubernetes/clusters
-
-registry-login: ## [do registry] login to DO container registry
-	@bash scripts/registry-login.sh
-
-registry-auth: ## [do registry] configure registry authentication
-	@bash scripts/registry-auth.sh
-
-cleanup: ## [k8s] remove generated files and terraform artifacts
-	@echo "${GREEN}Cleaning up generated files...${NC}"
-	rm -f tofu/tfplan
-	rm -rf tofu/.terraform
-	rm -f tofu/.terraform.lock.hcl
-	@echo "${GREEN}Cleaning up Python artifacts...${NC}"
-	find . -type f -name "*.pyc" -delete
-	find . -type d -name "__pycache__" -exec rm -rf {} +
-	find . -type d -name "*.egg-info" -exec rm -rf {} +
-	find . -type d -name ".pytest_cache" -exec rm -rf {} +
-	@echo "${GREEN}Cleanup complete${NC}"
-
-#* ArgoCD management
-ENVIRONMENT ?= dev
 
 argo-init: ## [argocd] initialize ArgoCD applications
 	@echo "Initializing ArgoCD applications..."
@@ -154,36 +127,58 @@ prometheus-ui: ## [argocd] port forward Prometheus UI to http://localhost:9090
 	@echo "Port forwarding Prometheus UI to http://localhost:9090"
 	kubectl port-forward svc/prometheus-server -n monitoring 9090:80
 
-clean: ## [argocd] remove ArgoCD applications and monitoring stack
+argo-clean: ## [argocd] remove ArgoCD applications and monitoring stack
 	@echo "Cleaning up..."
 	kubectl delete -f argocd/applications/apps.yaml || true
 	kubectl delete namespace monitoring || true
 
+#* Other
+open: ## [do] open DO cluster in browser
+	open https://cloud.digitalocean.com/kubernetes/clusters
+
+registry-login: ## [do] login to DO container registry
+	@bash scripts/registry-login.sh
+
+registry-auth: ## [do] configure registry authentication
+	@bash scripts/registry-auth.sh
+
+cleanup: ## remove generated files and terraform artifacts
+	@echo "${GREEN}Cleaning up generated files...${NC}"
+	rm -f tofu/tfplan
+	rm -rf tofu/.terraform
+	rm -f tofu/.terraform.lock.hcl
+	@echo "${GREEN}Cleaning up Python artifacts...${NC}"
+	find . -type f -name "*.pyc" -delete
+	find . -type d -name "__pycache__" -exec rm -rf {} +
+	find . -type d -name "*.egg-info" -exec rm -rf {} +
+	find . -type d -name ".pytest_cache" -exec rm -rf {} +
+	@echo "${GREEN}Cleanup complete${NC}"
+
 #* Phase 1: Infrastructure Setup
-infra-init: ## Initialize infrastructure
+infra-init: ## [phase 1] Initialize infrastructure
 	@echo "${GREEN}Initializing infrastructure...${NC}"
-	make init
-	make apply
+	make tofu-init
+	make tofu-apply
 	make verify
 	make registry-auth
 
 #* Phase 2: Container Registry and Image
-registry-setup: ## Setup registry and build/push image
+registry-setup: ## [phase 2] Setup registry and build/push image
 	@echo "${GREEN}Setting up container registry and building image...${NC}"
 	make registry-login
 	make docker-build
 	make docker-push
 
 #* Phase 3: ArgoCD Installation
-argocd-setup: ## Install and configure ArgoCD
+argocd-setup: ## [phase 3] Install and configure ArgoCD
 	@echo "${GREEN}Setting up ArgoCD...${NC}"
-	make argoinstall
+	make argo-install
 	@echo "ArgoCD admin credentials:"
-	make argopass
-	make argoapply
+	make argo-pass
+	make argo-apply
 
 #* Phase 4: Application Deployment
-app-deploy: ## Deploy application via ArgoCD
+app-deploy: ## [phase 4] Deploy application via ArgoCD
 	@echo "${GREEN}Deploying application...${NC}"
 	make argo-init
 	make argo-sync
@@ -192,7 +187,7 @@ app-deploy: ## Deploy application via ArgoCD
 	make argo-status
 
 #* Phase 5: Monitoring Setup
-monitoring-setup: ## Setup monitoring stack
+monitoring-setup: ## [phase 5] Setup monitoring stack
 	@echo "${GREEN}Setting up monitoring stack...${NC}"
 	make monitoring-init
 	@echo "Waiting for monitoring stack to be ready..."
@@ -202,7 +197,7 @@ monitoring-setup: ## Setup monitoring stack
 	make monitoring-password
 
 #* Complete Setup
-full-setup: ## Complete setup from scratch
+full-setup: ## [complete] Complete setup from scratch
 	@echo "${GREEN}Starting complete setup...${NC}"
 	make infra-init
 	make registry-setup
@@ -213,11 +208,3 @@ full-setup: ## Complete setup from scratch
 	@echo "ArgoCD UI: make argopf (http://localhost:8080)"
 	@echo "Grafana: make grafana-ui (http://localhost:3000)"
 	@echo "Prometheus: make prometheus-ui (http://localhost:9090)"
-
-#* Cleanup and Teardown
-full-cleanup: ## Complete cleanup of all resources
-	@echo "${RED}Starting complete cleanup...${NC}"
-	make clean
-	make destroy
-	make cleanup
-	@echo "${GREEN}Cleanup complete${NC}"
