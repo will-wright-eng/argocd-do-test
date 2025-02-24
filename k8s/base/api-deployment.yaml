@@ -19,6 +19,7 @@ spec:
         image: api:latest # Will be patched by overlay
         ports:
         - containerPort: 8080
+          name: http  # Added name for better identification
         resources:
           requests:
             cpu: 100m
@@ -26,3 +27,19 @@ spec:
           limits:
             cpu: 200m
             memory: 256Mi
+        securityContext:  # Added security context
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+        livenessProbe:  # Added health checks
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10

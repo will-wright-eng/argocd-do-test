@@ -23,6 +23,8 @@ grafana:
   persistence:
     enabled: true
     size: 5Gi
+    accessModes:
+      - ReadWriteOnce
   resources:
     requests:
       cpu: "100m"
